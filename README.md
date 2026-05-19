@@ -1,121 +1,149 @@
-﻿# Vipin Council
+﻿# Vipin Council v2.0
 
-A multi-LLM deliberation system that goes beyond simple "ask multiple models and pick the best." Instead of one protocol, Vipin Council implements **6 distinct deliberation strategies**, each suited to different types of questions.
+A production-grade multi-LLM deliberation system with integrated reasoning algorithms.
 
-## Why This Exists
+## Core Pipeline
 
-Karpathy's `llm-council` showed that asking multiple LLMs and having them review each other produces better answers. Vipin Council takes this further:
+```
+Query In
+    |
+    v
+[Smart Router] -- classify difficulty (heuristic + LLM)
+    |
+    +--> Simple (score < 0.25): Fast path (Haiku, instant)
+    |
+    +--> Moderate (0.25-0.6): Single strong model
+    |
+    +--> Complex (> 0.6):
+            |
+            v
+        [Task Decomposer] -- break into sub-tasks if multi-part
+            |
+            v
+        [Protocol Engine] -- run selected deliberation protocol
+            |
+            v
+        [Self-Refine] -- generate -> critique -> refine (max 3 rounds)
+            |
+            v
+        Final Answer + Confidence + Dissent + Audit Trail
+```
 
-| Feature | llm-council | vipin-council |
-|---------|-------------|---------------|
-| Protocols | 1 (council) | 6 (council, debate, red-team, consensus, specialist, tournament) |
-| Role specialization | No | Yes (architect, critic, researcher, practitioner) |
-| Cross-session memory | No | Yes (tracks which models excel at what) |
-| Confidence scoring | No | Yes (calibrated per-answer confidence) |
-| Dissent tracking | No | Yes (preserves minority opinions) |
-| Audit trail | No | Yes (full decision provenance) |
-| Structured output | No | Yes (JSON schema responses) |
+## Integrated Algorithms
 
-## Protocols
+| Algorithm | Source | What It Does |
+|-----------|--------|-------------|
+| Smart Router | RouteLLM (lm-sys) | Classifies difficulty, routes simple queries to fast models |
+| Self-Refine | Madaan et al. 2023 | Iterative critique-and-improve loop (2-3 rounds) |
+| Tree of Thoughts | Yao et al. 2023 | Beam search over candidates with multi-model voting |
+| Task Decomposer | CrewAI pattern | Breaks complex queries into specialist sub-tasks |
+| Peer Review | Karpathy llm-council | Anonymized cross-evaluation between models |
+| Consensus Loop | Novel | Iterative convergence with agreement threshold |
 
-### Council (Classic)
-All models answer independently. Each reviews the others (anonymized). A Chairman synthesizes the best answer.
+## 6 Deliberation Protocols
 
-### Debate
-Two models take opposing sides. They deliver opening statements, then rebuttals. A third model judges.
+| Protocol | Best For | How It Works |
+|----------|----------|-------------|
+| `council` | Open questions | All answer -> peer review -> chairman synthesis |
+| `debate` | Controversial topics | Pro vs con -> rebuttals -> judge verdict |
+| `redteam` | Testing ideas | Defend -> attack -> improve iteratively |
+| `consensus` | Team alignment | Rounds until agreement threshold met |
+| `specialist` | Domain expertise | Classify -> route to expert -> verify |
+| `tournament` | Best single answer | Bracket elimination, head-to-head |
 
-### Red Team
-One model proposes an answer. Another attacks it, finding weaknesses. The original model improves based on criticism. Repeat until robust.
+## 6-Agent Lineup
 
-### Consensus
-All models answer. They see each other's responses and revise. Repeat until agreement threshold is met or max rounds reached.
-
-### Specialist
-The system classifies the query domain, routes to the model with the best track record in that domain, then other models verify the specialist's answer.
-
-### Tournament
-Models are paired in brackets. Each pair's answers are judged head-to-head. Winners advance. Final winner's answer is the output.
+| Agent | Model | Role | Strengths |
+|-------|-------|------|-----------|
+| Opus | Claude 4.7 | Architect + Chairman | Complex reasoning, paper writing |
+| Codex | GPT-5.5 | Coordinator | Parallel execution, fast iteration |
+| OpenCode | Claude 4.7 | Implementer | Code, testing, docs |
+| Sonnet | Claude 4.6 | Reviewer | Quality gate, verification |
+| Haiku | Claude 4.5 | Speedster | Pre-screening, fast triage |
+| DeepSeek | DeepSeek V4 | Bulk Worker | Translation, long generation |
 
 ## Quick Start
 
 ```bash
-# Install
 pip install -e .
-
-# Set API key
-cp .env.example .env
-# Edit .env with your OpenRouter API key
-
-# Run backend
+cp .env.example .env  # Add your OPENROUTER_API_KEY
 uvicorn backend.main:app --reload --port 8000
-
-# Run frontend (separate terminal)
-cd frontend && npm install && npm run dev
 ```
 
 ## API
 
 ```bash
-# Health check
-curl http://localhost:8000/api/health
-
-# List models
-curl http://localhost:8000/api/models
-
-# List protocols
-curl http://localhost:8000/api/protocols
-
-# Submit query
+# Simple query (auto-routed)
 curl -X POST http://localhost:8000/api/query \
   -H "Content-Type: application/json" \
-  -d '{"query": "What is the best approach to distributed consensus?", "protocol": "debate"}'
+  -d '{"query": "What is a monad?", "protocol": "council"}'
+
+# Debate mode
+curl -X POST http://localhost:8000/api/query \
+  -d '{"query": "Should startups use microservices?", "protocol": "debate"}'
+
+# Red team your idea
+curl -X POST http://localhost:8000/api/query \
+  -d '{"query": "My plan is to build X", "protocol": "redteam"}'
 ```
 
-## Configuration
+## Response Format
 
-Edit `backend/config.py` to customize:
-- Which models sit on the council
-- Which model is Chairman
-- Default protocol
-- Confidence thresholds
-- Max consensus rounds
+```json
+{
+  "session_id": "uuid",
+  "protocol": "council",
+  "stages": [...],
+  "final_answer": "The synthesized, refined answer",
+  "confidence": 0.87,
+  "dissent": ["Model X disagrees because..."],
+  "audit_trail": [
+    {"step": "routing", "tier": "full_council", "difficulty": 0.72},
+    {"step": "decompose", "subtask_count": 3},
+    {"step": "protocol", "name": "council", "stages": 3},
+    {"step": "refine", "iterations": 2, "final_score": 8.5}
+  ]
+}
+```
 
 ## Architecture
 
 ```
 vipin-council/
 ├── backend/
-│   ├── main.py              # FastAPI endpoints
-│   ├── config.py            # Model and council configuration
+│   ├── main.py                  # FastAPI endpoints
+│   ├── config.py                # 6-agent configuration
+│   ├── engine/                  # Core algorithms
+│   │   ├── smart_router.py      # RouteLLM-style difficulty routing
+│   │   ├── self_refine.py       # Generate -> critique -> refine loop
+│   │   ├── tree_of_thoughts.py  # Beam search with voting
+│   │   └── task_decomposer.py   # CrewAI-style task breakdown
 │   ├── council/
-│   │   ├── orchestrator.py  # Routes to protocols
-│   │   └── session.py       # Session data model
-│   ├── protocols/
-│   │   ├── base.py          # Protocol interface
-│   │   ├── council_protocol.py
-│   │   ├── debate_protocol.py
-│   │   ├── redteam_protocol.py
-│   │   ├── consensus_protocol.py
-│   │   ├── specialist_protocol.py
-│   │   └── tournament_protocol.py
+│   │   ├── orchestrator.py      # Pipeline: route -> decompose -> protocol -> refine
+│   │   └── session.py           # Session data model
+│   ├── protocols/               # 6 deliberation protocols
 │   ├── providers/
-│   │   └── router.py        # OpenRouter API client
+│   │   └── router.py            # OpenRouter API client
 │   └── memory/
-│       └── tracker.py       # Performance tracking
-├── frontend/                 # React UI
-├── data/
-│   └── sessions/            # Saved deliberation sessions
+│       └── tracker.py           # Cross-session performance memory
+├── data/sessions/               # Saved deliberation sessions
 ├── pyproject.toml
 └── .env.example
 ```
 
-## Design Principles
+## vs. Other Projects
 
-1. **Preserve dissent** — Minority opinions are recorded, not discarded
-2. **Audit everything** — Every model's contribution is traceable
-3. **Learn over time** — The system remembers which models excel at what
-4. **Match protocol to problem** — Different questions need different deliberation styles
-5. **Confidence calibration** — Every answer comes with a calibrated confidence score
+| Feature | llm-council | AutoGen | CrewAI | vipin-council |
+|---------|-------------|---------|--------|---------------|
+| Deliberation protocols | 1 | 0 | 0 | **6** |
+| Smart routing | No | No | No | **Yes** |
+| Self-refine loop | No | No | No | **Yes (3 rounds)** |
+| Tree of Thoughts | No | No | No | **Yes (beam=5)** |
+| Task decomposition | No | Yes | Yes | **Yes** |
+| Confidence scoring | No | No | No | **Yes** |
+| Dissent preservation | No | No | No | **Yes** |
+| Cross-session memory | No | No | No | **Yes** |
+| Audit trail | No | Partial | Partial | **Full** |
 
 ## License
 
