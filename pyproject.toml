@@ -1,0 +1,22 @@
+﻿[project]
+name = "vipin-council"
+version = "1.0.0"
+description = "Multi-LLM deliberation system with 6 protocols: council, debate, red-team, consensus, specialist, tournament"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.9.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 100
