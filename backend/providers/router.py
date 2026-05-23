@@ -30,13 +30,15 @@ class ModelRouter:
             return data["choices"][0]["message"]["content"]
 
     async def query_all(self, messages: list[dict], temperature: float = 0.7) -> dict[str, str]:
-        """Query all council models in parallel."""
+        """Query all council models in parallel via asyncio.gather."""
         import asyncio
-        tasks = {m.id: self.query(m, messages, temperature) for m in self.config.models}
-        results = {}
-        for model_id, task in tasks.items():
+
+        async def safe_query(model: ModelConfig) -> tuple[str, str]:
             try:
-                results[model_id] = await task
+                result = await self.query(model, messages, temperature)
+                return model.id, result
             except Exception as e:
-                results[model_id] = f"[ERROR: {e}]"
-        return results
+                return model.id, f"[ERROR: {e}]"
+
+        pairs = await asyncio.gather(*[safe_query(m) for m in self.config.models])
+        return dict(pairs)

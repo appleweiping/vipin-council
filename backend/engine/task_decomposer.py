@@ -128,24 +128,22 @@ Only decompose if the query genuinely has multiple parts. If it's a single coher
         return self.config.models[0].id
 
     async def _execute_tasks(self, original_query: str, subtasks: list[SubTask]):
-        """Execute sub-tasks respecting dependencies."""
+        """Execute sub-tasks respecting dependencies, running ready tasks in parallel."""
         completed = set()
 
         while len(completed) < len(subtasks):
-            # Find tasks whose dependencies are met
             ready = [t for t in subtasks if t.id not in completed
                      and all(d in completed for d in t.depends_on)]
 
             if not ready:
                 break  # Circular dependency or error
 
-            # Execute ready tasks in parallel
-            for task in ready:
+            async def run_task(task: SubTask):
                 model = next((m for m in self.config.models if m.id == task.assigned_to), self.config.models[0])
                 context = ""
                 if task.depends_on:
                     deps_results = [subtasks[d].result for d in task.depends_on if subtasks[d].result]
-                    context = f"\nContext from previous steps:\n" + "\n".join(deps_results)
+                    context = "\nContext from previous steps:\n" + "\n".join(deps_results)
 
                 prompt = f"""Answer this specific sub-question as part of a larger query.
 
@@ -156,7 +154,9 @@ Provide a focused, thorough answer to your specific sub-task."""
 
                 task.result = await self.router.query(model, [{"role": "user", "content": prompt}])
                 task.status = "done"
-                completed.add(task.id)
+
+            await asyncio.gather(*[run_task(t) for t in ready])
+            completed.update(t.id for t in ready)
 
     async def _synthesize(self, query: str, subtasks: list[SubTask]) -> str:
         """Combine sub-task results into a coherent final answer."""

@@ -28,13 +28,13 @@ class CouncilConfig:
             strengths=["parallel-execution", "server-commands", "fast-iteration", "bulk-work"],
         ),
         ModelConfig(
-            id="anthropic/claude-sonnet-4", name="OpenCode",
+            id="anthropic/claude-sonnet-4-6", name="OpenCode",
             role="implementer",
             provider="openrouter",
             strengths=["implementation", "testing", "doc-updates", "code-review"],
         ),
         ModelConfig(
-            id="anthropic/claude-sonnet-4", name="Sonnet",
+            id="anthropic/claude-sonnet-4-5", name="Sonnet",
             role="reviewer",
             provider="openrouter",
             strengths=["code-review", "table-eligibility", "verification", "quality-gate"],

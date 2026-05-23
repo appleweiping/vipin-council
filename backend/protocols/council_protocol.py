@@ -47,17 +47,15 @@ class CouncilProtocol(BaseProtocol):
         return await self.router.query_all(messages)
 
     async def _peer_review(self, query: str, opinions: dict[str, str]) -> dict[str, dict]:
-        reviews = {}
         model_ids = list(opinions.keys())
 
-        for reviewer_id in model_ids:
-            reviewer = next(m for m in self.config.models if m.id == reviewer_id)
-            # Anonymize other responses
-            other_responses = []
-            for i, (mid, resp) in enumerate(opinions.items()):
-                if mid != reviewer_id:
-                    other_responses.append(f"Response {chr(65+i)}: {resp}")
-
+        async def review_one(reviewer_id: str) -> tuple[str, dict]:
+            reviewer = next((m for m in self.config.models if m.id == reviewer_id), self.config.models[0])
+            other_responses = [
+                f"Response {chr(65+i)}: {resp}"
+                for i, (mid, resp) in enumerate(opinions.items())
+                if mid != reviewer_id
+            ]
             review_prompt = f"""You are reviewing responses to this query: "{query}"
 
 Here are the anonymized responses from other council members:
@@ -72,13 +70,14 @@ Rank these responses from best to worst. For each, give:
 
 Be honest and critical. Your identity is hidden from the other reviewers."""
 
-            review_messages = [{"role": "user", "content": review_prompt}]
-            reviews[reviewer_id] = {"review": await self.router.query(reviewer, review_messages)}
+            review = await self.router.query(reviewer, [{"role": "user", "content": review_prompt}])
+            return reviewer_id, {"review": review}
 
-        return reviews
+        pairs = await asyncio.gather(*[review_one(rid) for rid in model_ids])
+        return dict(pairs)
 
     async def _chairman_synthesis(self, query: str, opinions: dict, reviews: dict) -> tuple[str, float, list[str]]:
-        chairman = next(m for m in self.config.models if m.id == self.config.chairman)
+        chairman = next((m for m in self.config.models if m.id == self.config.chairman), self.config.models[0])
 
         synthesis_prompt = f"""You are the Chairman of the LLM Council. Your job is to produce the definitive answer.
 

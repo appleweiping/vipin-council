@@ -13,6 +13,7 @@ class ConsensusProtocol(BaseProtocol):
         models = self.config.models
         max_rounds = self.config.consensus_rounds_max
         threshold = self.config.confidence_threshold
+        agreement_ratio = 0.0  # initialise before loop so it's always defined
 
         # Round 1: Initial responses
         messages = [{"role": "user", "content": session.query}]
@@ -65,7 +66,7 @@ Otherwise start with CONSENSUS: NO"""}]
                 break
 
         # Final synthesis from chairman
-        chairman = next(m for m in models if m.id == self.config.chairman)
+        chairman = next((m for m in models if m.id == self.config.chairman), models[0])
         synthesis_msg = [{"role": "user", "content": f"""Synthesize the final consensus answer for: "{session.query}"
 
 Final positions:
@@ -74,7 +75,7 @@ Final positions:
 Produce the consensus answer."""}]
 
         result.final_answer = await self.router.query(chairman, synthesis_msg)
-        result.confidence = agreement_ratio if 'agreement_ratio' in dir() else 0.5
+        result.confidence = agreement_ratio
         result.dissent = [resp for mid, resp in responses.items() if "CONSENSUS: NO" in resp.upper()]
 
         return result

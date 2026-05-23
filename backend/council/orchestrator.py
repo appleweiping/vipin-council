@@ -65,8 +65,8 @@ class Orchestrator:
             result.audit_trail.append({"step": "decompose", "subtask_count": len(decomposition.subtasks)})
 
             # Refine the synthesis
-            architect = next(m for m in self.config.models if m.role == "architect")
-            critic = next(m for m in self.config.models if m.role == "reviewer")
+            architect = next((m for m in self.config.models if m.role == "architect"), self.config.models[0])
+            critic = next((m for m in self.config.models if m.role == "reviewer"), self.config.models[0])
             refined = await self.refiner.refine(architect, critic, session.query, decomposition.synthesis)
             if refined.iterations > 0:
                 result.final_answer = refined.final
@@ -81,8 +81,8 @@ class Orchestrator:
 
         # Step 5: Self-refine the final answer (if not already high confidence)
         if result.confidence < 0.85 and result.final_answer:
-            architect = next(m for m in self.config.models if m.role == "architect")
-            critic = next(m for m in self.config.models if m.role == "reviewer")
+            architect = next((m for m in self.config.models if m.role == "architect"), self.config.models[0])
+            critic = next((m for m in self.config.models if m.role == "reviewer"), self.config.models[0])
             refined = await self.refiner.refine(architect, critic, session.query, result.final_answer)
             if refined.iterations > 0 and refined.scores and refined.scores[-1] > 7.0:
                 result.final_answer = refined.final
