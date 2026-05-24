@@ -108,9 +108,34 @@ class Spinner:
 def print_header():
     cols = shutil.get_terminal_size().columns
     print()
-    print(c("  ⚡ Vipin Council", BOLD, BMAGENTA) + "  " + c("v2.0", DIM))
+    print(c("  ⚡ Vipin Council", BOLD, BMAGENTA) + "  " + c("v2.1", DIM))
     print(c("  Multi-LLM Deliberation System", DIM))
     print(hr())
+    _show_startup_context()
+
+
+def _show_startup_context():
+    """Show mailbox messages and active projects on startup."""
+    try:
+        from backend.memory.shared_memory import load_shared_memory, read_mailbox, mark_messages_read
+        msgs = read_mailbox("vc")
+        if msgs:
+            print(f"  {c('📬 Mailbox', BOLD, BYELLOW)}  {c(f'{len(msgs)} unread', DIM)}")
+            for m in msgs[:3]:
+                print(f"  {c('·', DIM)} {c(m.get('from', '?'), BCYAN)}: {m.get('subject', '')[:60]}")
+            mark_messages_read("vc")
+            print()
+        ctx = load_shared_memory()
+        if ctx.projects:
+            print(f"  {c('Active Projects', BOLD, BCYAN)}")
+            for p in ctx.projects[:4]:
+                prio = p["priority"]
+                name = p["name"]
+                status = p["status"][:50]
+                print(f"  {c(f'P{prio}', DIM)} {c(name, BOLD)}  {c(status, DIM)}")
+            print()
+    except Exception:
+        pass
 
 def print_query_echo(query: str, protocol: str):
     icon, color, _ = PROTOCOLS.get(protocol, ("?", WHITE, ""))
@@ -306,6 +331,49 @@ def cmd_status():
     print(hr())
     print()
 
+
+def cmd_projects():
+    """Show active research projects from shared memory."""
+    try:
+        from backend.memory.shared_memory import load_shared_memory
+        ctx = load_shared_memory()
+        if not ctx.projects:
+            print(c("\n  No active projects found in shared memory.\n", DIM))
+            return
+        print(f"\n  {c('Active Research Projects', BOLD, BCYAN)}")
+        print(hr())
+        for p in ctx.projects:
+            prio = p["priority"]
+            name = p["name"]
+            direction = p["direction"][:70]
+            status = p["status"][:70]
+            print(f"  {c(f'P{prio}', BYELLOW)} {c(name, BOLD)}")
+            print(f"     {c('Direction:', DIM)} {direction}")
+            print(f"     {c('Status:', DIM)} {c(status, DIM)}")
+        print(hr())
+        print()
+    except Exception as e:
+        print(c(f"\n  ✗ Could not load projects: {e}\n", BRED))
+
+
+def cmd_context():
+    """Show the project context that will be injected into queries."""
+    try:
+        from backend.memory.shared_memory import load_shared_memory
+        ctx = load_shared_memory()
+        block = ctx.as_context_block()
+        if not block:
+            print(c("\n  No context available.\n", DIM))
+            return
+        print(f"\n  {c('Injected Context', BOLD, BCYAN)}")
+        print(hr())
+        for line in block.split("\n"):
+            print(f"  {line}")
+        print(hr())
+        print()
+    except Exception as e:
+        print(c(f"\n  ✗ Could not load context: {e}\n", BRED))
+
 # ── Interactive REPL ──────────────────────────────────────────────────────────
 REPL_HELP = f"""
   {c('Commands', BOLD)}
@@ -313,7 +381,10 @@ REPL_HELP = f"""
   {c('/verbose', CYAN)}           toggle verbose mode (show all stages)
   {c('/sessions', CYAN)}          list recent sessions
   {c('/models', CYAN)}            list configured models
+  {c('/protocols', CYAN)}         list all protocols
   {c('/status', CYAN)}            check backend health
+  {c('/projects', CYAN)}          show active research projects
+  {c('/context', CYAN)}           show current project context injected into queries
   {c('/clear', CYAN)}             clear screen
   {c('/help', CYAN)}              show this help
   {c('/quit', CYAN)}  or Ctrl-C   exit
@@ -372,6 +443,10 @@ async def repl():
                     print(f"  {c('Protocol →', DIM)} {c(icon2 + ' ' + p, BOLD, color2)}  {c(desc, DIM)}\n")
                 else:
                     print(c(f"  Unknown protocol: {p}. Options: {', '.join(PROTOCOLS)}\n", BRED))
+            elif cmd == "/projects":
+                cmd_projects()
+            elif cmd == "/context":
+                cmd_context()
             else:
                 print(c(f"  Unknown command: {cmd}. Type /help\n", BRED))
             continue

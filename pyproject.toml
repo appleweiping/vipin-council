@@ -1,4 +1,4 @@
-﻿[project]
+[project]
 name = "vipin-council"
 version = "1.0.0"
 description = "Multi-LLM deliberation system with 6 protocols: council, debate, red-team, consensus, specialist, tournament"
@@ -16,6 +16,13 @@ vc = "vc:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[tool.setuptools]
+py-modules = ["vc"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*"]
 
 [build-system]
 requires = ["setuptools>=75.0"]

@@ -18,13 +18,11 @@ class CouncilProtocol(BaseProtocol):
             id=session.id, query=session.query,
             protocol="council", created_at=session.created_at,
         )
+        context = session.context or ""
 
         # Stage 1: First opinions
         messages = [{"role": "user", "content": session.query}]
-        if session.context:
-            messages.insert(0, {"role": "system", "content": session.context})
-
-        opinions = await self._gather_opinions(messages)
+        opinions = await self._gather_opinions(messages, context)
         result.stages.append({"name": "First Opinions", "responses": opinions})
         result.audit_trail.append({"stage": 1, "action": "gather_opinions", "model_count": len(opinions)})
 
@@ -43,8 +41,8 @@ class CouncilProtocol(BaseProtocol):
 
         return result
 
-    async def _gather_opinions(self, messages: list[dict]) -> dict[str, str]:
-        return await self.router.query_all(messages)
+    async def _gather_opinions(self, messages: list[dict], context: str = "") -> dict[str, str]:
+        return await self.router.query_all(messages, context=context)
 
     async def _peer_review(self, query: str, opinions: dict[str, str]) -> dict[str, dict]:
         model_ids = list(opinions.keys())

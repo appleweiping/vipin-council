@@ -1,5 +1,28 @@
 ﻿# CLAUDE.md - Vipin Council
 
+## Session Start (mandatory)
+
+On every session start, run these in order:
+1. `memory_smart_search` with the current task description (agentmemory MCP)
+2. Read `D:\research\Vipin's Knowledgebase\memory\INDEX.md` for shared context
+3. Check mailbox: `D:\devtools\agent-hub\state\messages-vc.json` for unread messages
+
+After significant work, call `memory_save` with key decisions and findings.
+
+## Agent Identity
+
+- **Name**: vc (Vipin Council)
+- **Role**: Multi-LLM deliberation — 6 protocols (council, debate, red-team, consensus, specialist, tournament)
+- **Mailbox**: `D:\devtools\agent-hub\state\messages-vc.json`
+- **Shared memory**: `D:\research\Vipin's Knowledgebase\memory\`
+- **agentmemory URL**: `http://localhost:3111` (env: `AGENTMEMORY_URL`)
+
+## Multi-Agent Rules
+
+- Follow `D:\research\Vipin's Knowledgebase\AGENTS.md` for collaboration rules
+- Write durable findings to `D:\research\Vipin's Knowledgebase\memory\` after sessions
+- Do not store secrets or API keys in memory
+
 Multi-LLM deliberation system with 6 protocols.
 
 ## Quick Start
