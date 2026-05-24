@@ -22,6 +22,7 @@ After significant work, call `memory_save` with key decisions and findings.
 - Follow `D:\research\Vipin's Knowledgebase\AGENTS.md` for collaboration rules
 - Write durable findings to `D:\research\Vipin's Knowledgebase\memory\` after sessions
 - Do not store secrets or API keys in memory
+- For non-trivial tasks: read `D:\agent-resources\SKILL-INDEX.md` first and use the matching skill
 
 Multi-LLM deliberation system with 6 protocols.
 
